@@ -1,19 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import './App.css'; // Optional: custom CSS
+import './App.css'; // Custom styles
 import projectData from './data/projectData';
 
 const App = () => {
-  const mapContainerRef = useRef(null);
-  const mapRef = useRef(null);
+  const mapContainerRef = useRef(null); // Reference to the map container
+  const mapRef = useRef(null);          // To store the map instance
+  const popupRef = useRef(null);        // For managing a single popup instance
 
+  // Project filter state
   const [filters, setFilters] = useState({
     state: '',
     projectType: '',
     ownership: ''
   });
 
+  // Filtered project list
   const filteredProjects = projectData.filter(project => {
     const matchesState = filters.state ? project.state === filters.state : true;
     const matchesOwnership = filters.ownership ? project.ownership === filters.ownership : true;
@@ -21,33 +24,36 @@ const App = () => {
     return matchesState && matchesOwnership && matchesProjectType;
   });
 
-  const uniqueValues = (field) => [...new Set(projectData.map(p => p[field]).filter(Boolean))];
+  // Get unique values for dropdown filters
+  const uniqueValues = (field) =>
+    [...new Set(projectData.map(p => p[field]).filter(Boolean))];
 
+  // Initialize map on first render
   useEffect(() => {
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: process.env.REACT_APP_MAPTILER_STYLE,
-      center: [78.9629, 20.5937],
+      style: process.env.REACT_APP_MAPTILER_STYLE, // Vector tile style from MapTiler
+      center: [78.9629, 20.5937], // India center
       zoom: 4,
     });
 
     mapRef.current = map;
 
-    // Add navigation control (zoom buttons)
+    // Add zoom & rotate controls
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-    return () => map.remove();
+    return () => map.remove(); // Cleanup on unmount
   }, []);
 
+  // Add markers based on filtered data
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    // Remove existing markers
-    const currentMarkers = document.querySelectorAll('.maplibre-marker');
-    currentMarkers.forEach(m => m.remove());
+    // Remove old markers
+    document.querySelectorAll('.maplibre-marker').forEach(m => m.remove());
 
-    // Add filtered markers
+    // Add new markers
     filteredProjects.forEach(project => {
       const el = document.createElement('div');
       el.className = 'maplibre-marker';
@@ -56,36 +62,60 @@ const App = () => {
       el.style.backgroundColor = '#2e7d32';
       el.style.borderRadius = '50%';
 
+      const popup = new maplibregl.Popup({ offset: 25 }).setHTML(`
+        <strong>${project.name}</strong><br/>
+        ${project.description}<br/>
+        <small>${project.city}, ${project.state}</small>
+      `);
+
       new maplibregl.Marker(el)
         .setLngLat([project.location[1], project.location[0]])
-        .setPopup(
-          new maplibregl.Popup({ offset: 25 }).setHTML(`
-            <strong>${project.name}</strong><br/>
-            ${project.description}<br/>
-            <small>${project.city}, ${project.state}</small>
-          `)
-        )
+        .setPopup(popup)
         .addTo(map);
     });
   }, [filteredProjects]);
 
+  // Zoom and open popup on project list click
+  const handleProjectClick = (project) => {
+    const map = mapRef.current;
+    if (map) {
+      const lngLat = [project.location[1], project.location[0]];
+      map.flyTo({ center: lngLat, zoom: 12 });
+
+      // Reuse popup
+      if (popupRef.current) {
+        popupRef.current.remove();
+      }
+
+      const popup = new maplibregl.Popup({ offset: 25 })
+        .setLngLat(lngLat)
+        .setHTML(`
+          <strong>${project.name}</strong><br/>
+          ${project.description}<br/>
+          <small>${project.city}, ${project.state}</small>
+        `)
+        .addTo(map);
+
+      popupRef.current = popup;
+    }
+  };
+
   return (
-    <div style={{ display: 'flex', height: '100vh' }}>
-      {/* Sidebar */}
-      <div style={{
-        width: '300px',
-        backgroundColor: '#f0f0f0',
-        padding: '20px',
-        overflowY: 'auto',
-        borderRight: '1px solid #ccc'
-      }}>
+    <div className="app-container">
+      {/* Sidebar for filters and project list */}
+      <div className="sidebar">
         <h2>Projects</h2>
 
+        {/* Filters */}
         <div style={{ marginBottom: '10px' }}>
           <label>State:</label>
-          <select name="state" onChange={(e) => setFilters({ ...filters, state: e.target.value })} value={filters.state}>
+          <select
+            name="state"
+            value={filters.state}
+            onChange={(e) => setFilters({ ...filters, state: e.target.value })}
+          >
             <option value="">All</option>
-            {uniqueValues("state").map(state => (
+            {uniqueValues('state').map(state => (
               <option key={state} value={state}>{state}</option>
             ))}
           </select>
@@ -93,47 +123,46 @@ const App = () => {
 
         <div style={{ marginBottom: '10px' }}>
           <label>Ownership:</label>
-          <select name="ownership" onChange={(e) => setFilters({ ...filters, ownership: e.target.value })} value={filters.ownership}>
+          <select
+            name="ownership"
+            value={filters.ownership}
+            onChange={(e) => setFilters({ ...filters, ownership: e.target.value })}
+          >
             <option value="">All</option>
-            {uniqueValues("ownership").map(o => (
-              <option key={o} value={o}>{o}</option>
+            {uniqueValues('ownership').map(owner => (
+              <option key={owner} value={owner}>{owner}</option>
             ))}
           </select>
         </div>
 
         <div style={{ marginBottom: '10px' }}>
           <label>Project Type:</label>
-          <select name="projectType" onChange={(e) => setFilters({ ...filters, projectType: e.target.value })} value={filters.projectType}>
+          <select
+            name="projectType"
+            value={filters.projectType}
+            onChange={(e) => setFilters({ ...filters, projectType: e.target.value })}
+          >
             <option value="">All</option>
-            {uniqueValues("projectType").map(p => (
-              <option key={p} value={p}>{p}</option>
+            {uniqueValues('projectType').map(type => (
+              <option key={type} value={type}>{type}</option>
             ))}
           </select>
         </div>
 
-        <ul style={{ padding: 0, listStyle: 'none' }}>
+        {/* Project List */}
+        <ul className="project-list">
           {filteredProjects.map(project => (
-            <li
-              key={project.id}
-              style={{ cursor: 'pointer', marginBottom: '10px' }}
-              onClick={() => {
-                if (mapRef.current) {
-                  mapRef.current.flyTo({
-                    center: [project.location[1], project.location[0]],
-                    zoom: 12
-                  });
-                }
-              }}
-            >
+            <li key={project.id} onClick={() => handleProjectClick(project)}>
               <strong>{project.name}</strong><br />
-              <small>{project.city}, {project.state}</small>
+              <small>{project.city}, {project.state}</small><br />
+              <small>{project.projectType} ({project.ownership})</small>
             </li>
           ))}
         </ul>
       </div>
 
-      {/* Map Container */}
-      <div ref={mapContainerRef} style={{ flex: 1 }} />
+      {/* Map container */}
+      <div ref={mapContainerRef} className="map-container" />
     </div>
   );
 };
