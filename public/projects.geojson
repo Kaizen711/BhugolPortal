@@ -1,0 +1,27 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Smart City Nashik",
+        "description": "Geoportal + LULC + Transport"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [73.7898, 20.0059]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Tree Survey Pune",
+        "description": "Tree census with QR"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [73.8567, 18.5204]
+      }
+    }
+  ]
+}
